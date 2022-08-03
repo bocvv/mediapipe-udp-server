@@ -1,0 +1,116 @@
+I20200917 18:09:15.152086 283217344 demo_run_graph_main.cc:63] Get calculator graph config contents: # MediaPipe graph that performs upper-body pose tracking with TensorFlow Lite on CPU.
+
+# CPU buffer. (ImageFrame)
+input_stream: "input_video"
+
+# Output image with rendered results. (ImageFrame)
+output_stream: "output_video"
+# Pose landmarks. (NormalizedLandmarkList)
+output_stream: "pose_landmarks"
+
+# Throttles the images flowing downstream for flow control. It passes through
+# the very first incoming image unaltered, and waits for downstream nodes
+# (calculators and subgraphs) in the graph to finish their tasks before it
+# passes through another image. All images that come in while waiting are
+# dropped, limiting the number of in-flight images in most part of the graph to
+# 1. This prevents the downstream nodes from queuing up incoming images and data
+# excessively, which leads to increased latency and memory usage, unwanted in
+# real-time mobile applications. It also eliminates unnecessarily computation,
+# e.g., the output produced by a node may get dropped downstream if the
+# subsequent nodes are still busy processing previous inputs.
+node {
+  calculator: "FlowLimiterCalculator"
+  input_stream: "input_video"
+  input_stream: "FINISHED:output_video"
+  input_stream_info: {
+    tag_index: "FINISHED"
+    back_edge: true
+  }
+  output_stream: "throttled_input_video"
+}
+
+# Subgraph that detects poses and corresponding landmarks.
+node {
+  calculator: "PoseLandmarkUpperBodyCpu"
+  input_stream: "IMAGE:throttled_input_video"
+  output_stream: "LANDMARKS:pose_landmarks"
+  output_stream: "DETECTION:pose_detection"
+  output_stream: "ROI_FROM_LANDMARKS:roi_from_landmarks"
+}
+
+# Calculates size of the image.
+node {
+  calculator: "ImagePropertiesCalculator"
+  input_stream: "IMAGE:throttled_input_video"
+  output_stream: "SIZE:image_size"
+}
+
+# Smoothes pose landmarks in order to reduce jitter.
+node {
+  calculator: "LandmarksSmoothingCalculator"
+  input_stream: "NORM_LANDMARKS:pose_landmarks"
+  input_stream: "IMAGE_SIZE:image_size"
+  output_stream: "NORM_FILTERED_LANDMARKS:pose_landmarks_smoothed"
+  node_options: {
+    [type.googleapis.com/mediapipe.LandmarksSmoothingCalculatorOptions] {
+      velocity_filter: {
+        window_size: 5
+        velocity_scale: 10.0
+      }
+    }
+  }
+}
+
+# Add New Node
+node {
+  calculator: "UpperBodyPassThroughCalculator"
+  input_stream: "LANDMARKS:pose_landmarks_smoothed"
+  input_stream: "DETECTION:pose_detection"
+  input_stream: "IMAGE:input_video"
+  output_stream: "LANDMARKS:pose_landmarks_smoothed_out"
+  output_stream: "DETECTION:pose_detection_out"
+  output_stream: "IMAGE:output_video_1"
+}
+
+# Subgraph that renders pose-landmark annotation onto the input image.
+node {
+  calculator: "UpperBodyPoseRendererCpu"
+  input_stream: "IMAGE:throttled_input_video"
+  input_stream: "LANDMARKS:pose_landmarks_smoothed_out"
+  input_stream: "ROI:roi_from_landmarks"
+  input_stream: "DETECTION:pose_detection_out"
+  output_stream: I20200917 18:09:15.1528I20200917 18:09:15.153424 283217344 demo_run_graph_main.cc:69] InitializeI20200917 18:09:15.1565I20200917 18:09:15.157433 283217344 demo_run_graph_main.cc:73] Initialize the camI20200917 18:09:17.2482I20200917 18:09:17.248713 283217344 demo_run_graph_main.cc:99] Start running the calculator graph.
+I20200917 18:09:17.249101 283217344 demo_run_graph_main.cc:104] Start grabbing I20200917 18:17:33.026616 235576768 demo_run_graph_main.cc:153] Shutting down.
+I20200917 18:17:33.029716 235576768 demo_run_graph_main.cc:167] Success!
+encv-3.4.10/modules/imgproc/src/drawing.cpp:1782: error: (-215:Assertion failed) 0 < thickness && thickness <= MAX_THICKNESS in function 'line'
+
+t_stream: "IRIS_LANDMARKS_LEFT:left_iris_landmarks"
+  input_stream: "IRIS_LANDMARKS_RIGHT:right_iris_landmarks"
+  output_stream: "IMAGE:output_video_1"
+  output_stream: "EYE_LANDMARKS_LEFT:left_eye_contour_landmarks_out"
+  output_stream: "EYE_LANDMARKS_RIGHT:right_eye_contour_landmarks_out"
+  output_stream: "IRIS_LANDMARKS_LEFT:left_iris_landmarks_out"
+  output_stream: "IRIS_LANDMARKS_RIGHT:right_iris_landmarks_out"
+}
+
+# Renders annotations and overlays them on top of the input images.
+node {
+  calculator: "IrisRendererCpu"
+  input_stream: "IMAGE:input_video"
+  input_stream: "FACE_LANDMARKS:face_landmarks"
+  input_stream: "EYE_LANDMARKS_LEFT:left_eye_contour_landmarks_out"
+  input_stream: "EYE_LANDMARKS_RIGHT:right_eye_contour_landmarks_out"
+  input_stream: "IRIS_LANDMARKS_LEFT:left_iris_landmarks_out"
+  input_stream: "IRIS_LANDMARKS_RIGHT:right_iris_landmarks_out"
+  input_stream: "NORM_RECT:face_rect"
+  input_stream: "LEFT_EYE_RECT:left_eye_rect_from_landmarks"
+  input_stream: "RIGHT_EYE_RECT:right_eye_rect_from_landmarks"
+  input_stream: "DETECTIONS:face_detections"
+  output_stream: "IMAGE:output_video"
+}
+I20200917 18:09:15.153020 160566720 demo_run_graph_main.cc:69] Initialize the calculator graph.
+I20200917 18:09:15.161449 160566720 demo_run_graph_main.cc:73] Initialize the camera or load the video.
+I20200917 18:09:17.248442 160566720 demo_run_graph_main.cc:99] Start running the calculator graph.
+I20200917 18:09:17.248993 160566720 demo_run_graph_main.cc:104] Start grabbing and processing frames.
+I20200917 18:17:31.281103 160566720 demo_run_graph_main.cc:153] Shutting down.
+I20200917 18:17:31.286088 160566720 demo_run_graph_main.cc:167] Success!
